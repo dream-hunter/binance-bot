@@ -1,0 +1,30 @@
+{
+"API" :
+    {
+        "apikey"    : "",
+        "apisecret" : ""
+    },
+"WSS" :
+    {
+        "host" : "stream.binance.com",
+        "port" : "443"
+
+    },
+"Markets" :
+    {
+        "btcusdt" : {
+                        "buy" : {
+                                    "trend"       : 0,
+                                    "maxtrend"    : 50,
+                                    "stepforward" : 1,
+                                    "stepback"    : 3
+                                },
+                        "sell": {
+                                    "trend"       : 0,
+                                    "maxtrend"    : 50,
+                                    "stepforward" : 1,
+                                    "stepback"    : 3
+                        }
+                    }
+    }
+}
