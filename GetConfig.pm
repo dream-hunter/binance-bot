@@ -4,6 +4,7 @@ use strict;
 use Exporter;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 use JSON        qw(from_json encode_json);
+use POSIX;
 use Data::Dumper;
 use DateTime;
 use DateTime::TimeZone::Local;
@@ -19,7 +20,7 @@ sub getconfig {
     my $configfile = $_[0];
     my $loglevel = $_[1];
     my $config;
-    if (defined $loglevel && $loglevel >= 1) { print "\nDownloading config from $configfile..."; }
+    logmessage ("Downloading config from $configfile...", $loglevel);
 
     if (-e $configfile) {
         my $json;
@@ -30,10 +31,9 @@ sub getconfig {
             close $fh;
         }
         $config = from_json($json);
-        if (defined $loglevel && $loglevel >= 1) { print " - ok\n"; }
-        if (defined $loglevel && $loglevel >= 10) { print Dumper $config; }
+        logmessage (" - ok\n", $loglevel);
     } else {
-        print " - file $configfile does not exits";
+        logmessage (" - file $configfile does not exits", $loglevel);
         $config = {};
         setconfig($configfile, $loglevel, $config);
 #        return undef;
@@ -46,7 +46,7 @@ sub setconfig {
     my $loglevel = $_[1];
     my $config = $_[2];
     if (defined $loglevel && $loglevel >= 1) {
-        print "\nRewriting config to $configfile...";
+        logmessage ("\nRewriting config to $configfile...",$loglevel);
     }
     local $/; #Enable 'slurp' mode
     open my $fh, ">", "$configfile";
@@ -66,7 +66,7 @@ sub appendconfig {
     my $loglevel = $_[1];
     my $config = $_[2];
     if (defined $loglevel && $loglevel >= 1) {
-        print "\nAppend log to $configfile...";
+        logmessage ("\nAppend log to $configfile...", $loglevel);
     }
     local $/; #Enable 'slurp' mode
     open my $fh, ">>", "$configfile";
@@ -81,5 +81,14 @@ sub appendconfig {
     }
     return 1;
 }
+
+sub logmessage {
+    my $string = $_[0];
+    my $loglevel = $_[1];
+    if (defined $loglevel && $loglevel >= 5) {
+        print strftime("%Y-%m-%d %H:%M:%S ", localtime);
+        print $string;
+    }
+};
 
 1;

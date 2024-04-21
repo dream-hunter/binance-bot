@@ -32,3 +32,5 @@ sub logmessage {
     my $loglevel = $_[1];
     if (defined $loglevel && $loglevel > 5) { print $string; }
 }
+
+1;
