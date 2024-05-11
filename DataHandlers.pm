@@ -181,8 +181,8 @@ sub diffCalc {
     my $interval = $_[2];
     my $loglevel = $_[3];
     my $diff     = $data->{'klinehigh_'.$interval} - $data->{'klinelow_'.$interval};
-    my $diffhigh = $data->{'klinehigh_'.$interval} - $diff*$config->{'diffratehigh'};
-    my $difflow  = $data->{'klinelow_'.$interval} + $diff*$config->{'diffratelow'};
+    my $diffhigh = $data->{'klinehigh_'.$interval} - ($diff * $config->{'diffratehigh'});
+    my $difflow  = $data->{'klinelow_'.$interval} + ($diff * $config->{'diffratelow'});
     return ($diffhigh, $difflow);
 }
 sub logmessage {

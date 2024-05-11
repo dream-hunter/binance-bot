@@ -13,18 +13,25 @@
 "Markets" :
     {
         "btcusdt" : {
-                        "buy" : {
-                                    "trend"       : 0,
-                                    "maxtrend"    : 50,
-                                    "stepforward" : 1,
-                                    "stepback"    : 3
-                                },
-                        "sell": {
-                                    "trend"       : 0,
-                                    "maxtrend"    : 50,
-                                    "stepforward" : 1,
-                                    "stepback"    : 3
-                        }
-                    }
+            "buy" : {
+                "trend"         : 0,
+                "maxtrend"      : 1000,
+                "stepforward"   : 2,
+                "stepback"      : 3,
+                "diffratelow"   : 0.15,
+                "diffratehigh"  : 0.3,
+                "minspread"     : -7,
+                "historycheck"  : 336,
+                "emamethod"     : 0,
+                "orderprice"    : 1,
+                "nextbuyorder"  : 0.975
+            },
+            "sell": {
+                "trend"         : 0,
+                "maxtrend"      : 1000,
+                "stepforward"   : 2,
+                "stepback"      : 3
+            }
+        }
     }
 }

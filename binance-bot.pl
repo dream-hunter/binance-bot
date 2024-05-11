@@ -92,23 +92,41 @@ $timer = IO::Async::Timer::Periodic->new(
         interval=> 10,
         on_tick => sub {
             my $result = marketCheck($datapool, $config, $loglevel-1);
-            print Dumper $result;
-            foreach my $marketname (keys %{ $result }) {
-                if (defined $datapool->{$marketname}->{'orders'}->{'openedOrdes'}) {
-                }
+#            print Dumper $result;
+#            print Dumper $datapool;
+            foreach my $marketname (keys %{ $result->{'buy'} }) {
                 logmessage("!!!Wanna buy!!!\n", $loglevel);
-                my $buyorder = postOrder($marketname,"BUY",$datapool->{$marketname}->{'analysis'}->{'ask'},$config,$loglevel-1);
+                my $buyorder = postBuyOrder($marketname,$datapool->{$marketname}->{'analysis'}->{'ask'},$config,$loglevel-1);
                 print Dumper $buyorder;
                 if (defined $buyorder->{'status'} && $buyorder->{'status'} eq 'FILLED') {
                     logmessage("We have a buy!\nWriting order database for market $marketname...\n", $loglevel);
                     $datapool->{$marketname}->{'orders'}->{'closed'}->{'buy'}->{$buyorder->{'clientOrderId'}} = $buyorder;
-                    $datapool->{$marketname}->{'analysis'}->{'buyorderlow'} = getOrderLow($datapool->{$marketname}->{'orders'}->{'buy'}, $loglevel-1);
-                    $datapool->{$marketname}->{'analysis'}->{'buyorderhigh'} = getOrderHigh($datapool->{$marketname}->{'orders'}->{'buy'}, $loglevel-1);
+#                    $datapool->{$marketname}->{'analysis'}->{'buyorderlow'} = getOrderLow($datapool->{$marketname}->{'orders'}->{'buy'}, $loglevel-1);
+#                    $datapool->{$marketname}->{'analysis'}->{'buyorderhigh'} = getOrderHigh($datapool->{$marketname}->{'orders'}->{'buy'}, $loglevel-1);
+                    $datapool->{$marketname}->{'analysis'}->{'buyorderlow'} = getOrderLow($datapool->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
+                    $datapool->{$marketname}->{'analysis'}->{'buyorderhigh'} = getOrderHigh($datapool->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
 
                     setconfig("DB-".uc($marketname).".json", $loglevel-1, $datapool->{$marketname}->{'orders'});
-                    exit 0;
+
+#                    print Dumper $datapool;
+#                    exit 0;
                 }
             }
+            foreach my $marketname (keys %{ $result->{'sell'} }) {
+                logmessage("!!!Wanna sell!!!\n", $loglevel);
+                my $sellorder = postSellOrder($datapool->{$marketname}->{'analysis'}->{'buyorderlow'},$datapool->{$marketname}->{'analysis'}->{'bid'},$config,$loglevel-1);
+                print Dumper $sellorder;
+                if (defined $sellorder->{'status'} && $sellorder->{'status'} eq 'FILLED') {
+                    logmessage("We have a sell!\nWriting order database for market $marketname...\n", $loglevel);
+                    delete($datapool->{$marketname}->{'orders'}->{'closed'}->{'buy'}->{$datapool->{$marketname}->{'analysis'}->{'buyorderlow'}->{'clientOrderId'}});
+#                    $datapool->{$marketname}->{'analysis'}->{'buyorderlow'} = getOrderLow($datapool->{$marketname}->{'orders'}->{'buy'}, $loglevel-1);
+#                    $datapool->{$marketname}->{'analysis'}->{'buyorderhigh'} = getOrderHigh($datapool->{$marketname}->{'orders'}->{'buy'}, $loglevel-1);
+                    $datapool->{$marketname}->{'analysis'}->{'buyorderlow'} = getOrderLow($datapool->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
+                    $datapool->{$marketname}->{'analysis'}->{'buyorderhigh'} = getOrderHigh($datapool->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
+                    setconfig("DB-".uc($marketname).".json", $loglevel-1, $datapool->{$marketname}->{'orders'});
+                }
+            }
+#            exit 0;
         }
 );
 
@@ -151,7 +169,7 @@ sub marketCheck {
     my $loglevel = $_[2];
     my $result;
     foreach my $marketname (keys %{ $config->{'Markets'} }) {
-        logmessage ("Check for $marketname market:\n", $loglevel);
+        logmessage ("Check $marketname market.\n", $loglevel);
 
         printf ("%s %s %.2f %.2f %s %s %.2f %.2f %.2f %% %.2f %.2f %.2f %.2f\n",
             strftime("%Y-%m-%d %H:%M:%S", localtime),
@@ -170,7 +188,11 @@ sub marketCheck {
         );
         my $buycheck = buyCheck($data->{$marketname}->{'analysis'}, $config->{'Markets'}->{$marketname}->{'buy'}, $loglevel-1);
         if (defined $buycheck) {
-            $result->{$marketname} = $buycheck;
+            $result->{'buy'}->{$marketname} = $buycheck;
+        }
+        my $sellcheck = sellCheck($data->{$marketname}->{'analysis'}, $config->{'Markets'}->{$marketname}->{'sell'}, $loglevel-1);
+        if (defined $sellcheck) {
+            $result->{'sell'}->{$marketname} = $sellcheck;
         }
     }
 #    print Dumper $result;
@@ -183,68 +205,138 @@ sub buyCheck {
     my $result   = 1;
 #    print Dumper $data;
 #    print Dumper $config;
+    logmessage(" BUY:\n", $loglevel-1);
 # Orderlow
-    if (defined $data->{'buyorderlow'} && $data->{'buyorderlow'}->{'price'} * $config->{'nextbuyorder'} < $data->{'price'}) {
-        logmessage("Next order price is greater than current price\n", $loglevel);
-        return undef;
+    if (!defined $data->{'price'}) {
+        logmessage("\t".'1. Failed - $data->{\'price\'} not loaded yet.'."\n", $loglevel-1);
+        $result = undef;
+#        return undef;
+    }
+    if (defined $data->{'buyorderlow'}->{'price'}) {
+        if ($data->{'buyorderlow'}->{'price'} * $config->{'nextbuyorder'} < $data->{'price'}) {
+            logmessage("\t1. Failed - Defined next order price is greater than current price. (" . sprintf("%.8f", ($data->{'buyorderlow'}->{'price'} * $config->{'nextbuyorder'})) . " < " . $data->{'price'}.")\n", $loglevel);
+            $result = undef;
+#            return undef;
+        } else {
+            logmessage("\t1. Passed - Defined next order price is fine. (" . sprintf("%.8f", ($data->{'buyorderlow'}->{'price'} * $config->{'nextbuyorder'})) . " > " . $data->{'price'}.")\n", $loglevel-1);
+        }
     } else {
-        logmessage("Orderlow is fine\n", $loglevel-1);
+        logmessage("\t1. Passed - There is no buyorders in database.\n", $loglevel-1);
     }
 # Spread
-    if (!defined $data->{'spread'}) { 
-        logmessage("Spread is undefined\n", $loglevel);
-        return undef;
+    if (!defined $data->{'spread'}) {
+        logmessage("\t2. Failed - Spread is undefined\n", $loglevel);
+        $result = undef;
+#        return undef;
     } else {
         if ($data->{'spread'} < $config->{'minspread'}) {
-            logmessage("Spread is too low\n", $loglevel);
-            return undef;
+            logmessage("\t2. Failed - Spread is too low. (" . sprintf("%.2f", $data->{'spread'}) . " < " . $config->{'minspread'} . ")\n", $loglevel);
+            $result = undef;
+#            return undef;
         } else {
-            logmessage("Spread is fine\n", $loglevel-1);
+            logmessage("\t2. Passed - Spread is fine (" . sprintf("%.2f", $data->{'spread'}) . " > " . $config->{'minspread'} . ")\n", $loglevel-1);
         }
     }
 # Trend
     if (!defined $data->{'trend'}->{'buy'}) {
-        logmessage("Trend is undefined\n", $loglevel);
-        return undef;
+        logmessage("\t3. Failed - Trend is undefined\n", $loglevel-1);
+        $result = undef;
+#        return undef;
     } else {
-        if ($data->{'trend'}->{'buy'} < $config->{'maxtrend'} - $config->{'maxtrend'}/10) {
-            logmessage("Trend is too low\n", $loglevel);
-            return undef;
+        if ($data->{'trend'}->{'buy'} < ($config->{'maxtrend'} - $config->{'maxtrend'}/10)) {
+            logmessage("\t3. Failed - Trend is too low. (" . $data->{'trend'}->{'buy'} . " < " . ($config->{'maxtrend'} - $config->{'maxtrend'}/10) . ")\n", $loglevel-1);
+            $result = undef;
+#            return undef;
         } else {
-            logmessage("Trend is fine\n", $loglevel-1);
+            logmessage("\t3. Passed - Trend is fine. (" . $data->{'trend'}->{'buy'} . " > " . ($config->{'maxtrend'} - $config->{'maxtrend'}/10) . ")\n", $loglevel-1);
         }
     }
 #    return 1;
 # Diffrate
     if (!defined $data->{'diffhigh_1h'} || !defined $data->{'difflow_1h'} || !defined $data->{'price'}) {
-        logmessage("Price or Diffrates are undefined\n", $loglevel);
-        return undef;
+        logmessage("\t4. Failed - Price or Diffrates are undefined\n", $loglevel);
+        $result = undef;
+#        return undef;
     } else {
         if ($data->{'diffhigh_1h'} < $data->{'price'}) {
-            logmessage("Price is too high\n", $loglevel);
-            return undef;
+            logmessage("\t4. Failed - Price is too high. (" . $data->{'diffhigh_1h'} . " < " . $data->{'price'} . ")\n", $loglevel);
+            $result = undef;
+#            return undef;
         } elsif ($data->{'difflow_1h'} > $data->{'price'}) {
-            logmessage("Price is too low\n", $loglevel);
-            return undef;
+            logmessage("\t4. Failed - Price is too low. (" . $data->{'difflow_1h'} . " > " . $data->{'price'} . ")\n", $loglevel);
+            $result = undef;
+#            return undef;
         } else {
-            logmessage("Price is fine\n", $loglevel-1);
+            logmessage("\t4. Passed - Price is fine\n", $loglevel-1);
         }
     }
 # EMA
     if (!defined $data->{'ema'}->{'5m'} || !defined $data->{'ema'}->{'1h'}) {
-        logmessage("EMA is undefined\n", $loglevel);
-        return undef;
+        logmessage("\t5. Failed - EMA is undefined\n", $loglevel);
+        $result = undef;
+#        return undef;
     } else {
         if ($data->{'ema'}->{'5m'} < $data->{'ema'}->{'1h'}) {
-            logmessage("Short EMA less than Long EMA\n", $loglevel);
-            return undef;
+            logmessage("\t5. Failed - Short EMA less than Long EMA. (" . sprintf("%.8f", $data->{'ema'}->{'5m'}) . " < " . sprintf("%.8f", $data->{'ema'}->{'1h'}) . ")\n", $loglevel);
+            $result = undef;
+#            return undef;
         } else {
-            logmessage("EMA is fine\n", $loglevel-1);
+            logmessage("\t5. Passed - Short EMA greater than Long EMA. (" . sprintf("%.8f", $data->{'ema'}->{'5m'}) . " > " . sprintf("%.8f", $data->{'ema'}->{'1h'}) . ")\n", $loglevel-1);
         }
     }
+#    $result = undef;
     return $result;
 }
 sub sellCheck {
+    my $data     = $_[0];
+    my $config   = $_[1];
+    my $loglevel = $_[2];
+    my $result   = 1;
+    logmessage(" SELL:\n", $loglevel-1);
+# Limit check
+    if (defined $data->{'buyorderlow'}->{'price'}) {
+        if (($data->{'price'} / $data->{'buyorderlow'}->{'price'}) <= (1 + $config->{'nextsellorder'})) {
+            logmessage("\t1. Failed - Price too low. (" . sprintf("%.8f", $data->{'price'} / $data->{'buyorderlow'}->{'price'}) . " <= " . sprintf("%.8f", 1 + $config->{'nextsellorder'}) . ")\n", $loglevel);
+            $result = undef;
+        } else {
+            logmessage("\t1. Passed - Price is fine for sell. (" . sprintf("%.8f", $data->{'price'} / $data->{'buyorderlow'}->{'price'}) . " > " . sprintf("%.8f", 1 + $config->{'nextsellorder'}) . ")\n", $loglevel-1);
+        }
+    } else {
+            logmessage("\t1. Failed - Nothing to sell\n", $loglevel-1);
+            $result = undef;
+#            return undef;
+    }
+# Stoploss
+# Trend
+    if (!defined $data->{'trend'}->{'sell'}) {
+        logmessage("\t2. Failed - Trend is undefined\n", $loglevel);
+        $result = undef;
+#        return undef;
+    } else {
+        if ($data->{'trend'}->{'sell'} < $config->{'maxtrend'} - $config->{'maxtrend'}/10) {
+            logmessage("\t2. Failed - Trend is too low. (" . $data->{'trend'}->{'sell'} . " < " . int($config->{'maxtrend'} - $config->{'maxtrend'}/10) . ")\n", $loglevel);
+            $result = undef;
+#            return undef;
+        } else {
+            logmessage("\t2. Passed - Trend is fine. (" . $data->{'trend'}->{'sell'} . " > " . int($config->{'maxtrend'} - $config->{'maxtrend'}/10) . ")\n", $loglevel-1);
+        }
+    }
+# EMA
+    if (!defined $data->{'ema'}->{'5m'} || !defined $data->{'ema'}->{'1h'}) {
+        logmessage("\t3. Failed - EMA is undefined\n", $loglevel);
+        $result = undef;
+#        return undef;
+    } else {
+        if ($data->{'ema'}->{'5m'} > $data->{'ema'}->{'1h'}) {
+            logmessage("\t3. Passed - Short EMA greater than Long EMA. (" . $data->{'ema'}->{'5m'} . " > " . $data->{'ema'}->{'1h'} . ")\n", $loglevel);
+            $result = undef;
+#            return undef;
+        } else {
+            logmessage("\t3. Passed - EMA is fine.  (" . $data->{'ema'}->{'5m'} . " < " . $data->{'ema'}->{'1h'} . ")\n", $loglevel-1);
+        }
+    }
+#    return 1;
+    return $result;
 }
 sub getOrderLow {
     my $orders   = $_[0];
@@ -304,12 +396,11 @@ sub getExchangeInfo {
 #    print Dumper $result;
     return $result;
 }
-sub postOrder {
+sub postBuyOrder {
     my $marketname      = $_[0];
-    my $side            = $_[1];
-    my $price           = $_[2];
-    my $config          = $_[3];
-    my $loglevel        = $_[4];
+    my $price           = $_[1];
+    my $config          = $_[2];
+    my $loglevel        = $_[3];
 #POST /api/v3/order
 #
 #timeInForce: #GTC - Good Till Cancel #OC - Immediate or Cancel #FOK - Fill or Kill #GTX - Good Till Crossing (Post Only)
@@ -326,9 +417,35 @@ sub postOrder {
         logmessage ("Order quantity too low", $loglevel);
         $quantity = $filters->{'minQty'}
     }
-    my $parameters      = "symbol=".uc($marketname)."&side=".$side."&type=LIMIT&timeInForce=FOK&quantity=".$quantity."&price=".$price;
+    my $parameters      = "symbol=".uc($marketname)."&side=BUY&type=LIMIT&timeInForce=FOK&quantity=".$quantity."&price=".$price;
     my $method          = "POST";
     my ($result, $ping) = rest_api($endpoint, $parameters, $api, $method, $loglevel-1);
+    return $result;
+}
+sub postSellOrder {
+    my $order    = $_[0];
+    my $price    = $_[1];
+    my $config   = $_[2];
+    my $loglevel = $_[3];
+    if (!defined $order || !keys %{ $order }) { return undef; }
+    print Dumper $order;
+#    exit 0;
+#POST /api/v3/order
+#
+#timeInForce: #GTC - Good Till Cancel #OC - Immediate or Cancel #FOK - Fill or Kill #GTX - Good Till Crossing (Post Only)
+    my $api             = $config->{'API'};
+    my $endpoint        = $api->{'url'} . "/order";
+    my $marketname      = $order->{'symbol'};
+    my $filters         = $config->{'ExchangeInfo'}->{uc($marketname)}->{'filters'};
+    my $commission  = 0;
+    foreach my $fill (values @{ $order->{'fills'} }) {
+        $commission += $fill->{'commission'};
+    }
+    my $quantity   = $order->{'executedQty'} - $commission;
+    $quantity      = sprintf ("%f", floor($quantity / $filters->{'LOT_SIZE'}->{'minQty'}) * $filters->{'LOT_SIZE'}->{'minQty'});
+    my $method     = "POST";
+    my $parameters = "symbol=".uc($marketname)."&side=SELL&type=LIMIT&timeInForce=FOK&quantity=".(sprintf("%.8f", $quantity))."&price=".$price;
+    my ($result, $ping) = rest_api($endpoint, $parameters, $api, $method, 10);
     return $result;
 }
 sub logmessage {
