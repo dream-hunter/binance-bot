@@ -8,7 +8,7 @@ use POSIX;
 use Data::Dumper;
 use DateTime;
 use DateTime::TimeZone::Local;
-
+use ServiceSubs;
 
 $VERSION     = 1.00;
 @ISA         = qw(Exporter);
@@ -20,7 +20,7 @@ sub getconfig {
     my $configfile = $_[0];
     my $loglevel = $_[1];
     my $config;
-    logmessage ("Downloading config from $configfile...", $loglevel);
+    logMessage ("Downloading config from $configfile...", $loglevel);
 
     if (-e $configfile) {
         my $json;
@@ -31,9 +31,9 @@ sub getconfig {
             close $fh;
         }
         $config = from_json($json);
-        logmessage (" - ok\n", $loglevel);
+        logMessage (" - ok\n", $loglevel);
     } else {
-        logmessage (" - file $configfile does not exits", $loglevel);
+        logMessage (" - file $configfile does not exits", $loglevel);
         $config = {};
         setconfig($configfile, $loglevel, $config);
 #        return undef;
@@ -46,7 +46,7 @@ sub setconfig {
     my $loglevel = $_[1];
     my $config = $_[2];
     if (defined $loglevel && $loglevel >= 1) {
-        logmessage ("\nRewriting config to $configfile...",$loglevel);
+        logMessage ("\nRewriting config to $configfile...",$loglevel);
     }
     local $/; #Enable 'slurp' mode
     open my $fh, ">", "$configfile";
@@ -66,7 +66,7 @@ sub appendconfig {
     my $loglevel = $_[1];
     my $config = $_[2];
     if (defined $loglevel && $loglevel >= 1) {
-        logmessage ("\nAppend log to $configfile...", $loglevel);
+        logMessage ("\nAppend log to $configfile...", $loglevel);
     }
     local $/; #Enable 'slurp' mode
     open my $fh, ">>", "$configfile";
@@ -81,14 +81,5 @@ sub appendconfig {
     }
     return 1;
 }
-
-sub logmessage {
-    my $string = $_[0];
-    my $loglevel = $_[1];
-    if (defined $loglevel && $loglevel >= 5) {
-        print strftime("%Y-%m-%d %H:%M:%S ", localtime);
-        print $string;
-    }
-};
 
 1;

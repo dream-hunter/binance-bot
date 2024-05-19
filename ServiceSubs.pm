@@ -4,12 +4,13 @@ use strict;
 use Exporter;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 use Data::Dumper;
+use POSIX;
 
 $VERSION     = 1.00;
 @ISA         = qw(Exporter);
-@EXPORT      = ();
-@EXPORT_OK   = qw(showcomparevalues compare_hashes getHashed);
-%EXPORT_TAGS = ( DEFAULT => [qw(&showCompareValues &compareHashes getHashed)]);
+@EXPORT      = qw(showcomparevalues compare_hashes getHashed logMessage);
+#@EXPORT_OK   = qw(showcomparevalues compare_hashes getHashed logMessage);
+#%EXPORT_TAGS = ( DEFAULT => [qw(&showCompareValues &compareHashes getHashed logMessage)]);
 
 sub showCompareValues {
     my $value_1 = $_[0];
@@ -47,4 +48,14 @@ sub getHashed {
     }
     return $result;
 }
+
+sub logMessage {
+    my $string = $_[0];
+    my $loglevel = $_[1];
+    if (defined $loglevel && $loglevel >= 5) {
+        print strftime("%Y-%m-%d %H:%M:%S ", localtime);
+        print $string;
+    }
+};
+
 1;

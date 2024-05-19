@@ -13,10 +13,11 @@ use POSIX;
 use BinanceAPI qw(rest_api);
 use Storable   qw(dclone);
 use Data::Dumper;
-
+use ServiceSubs;
+use APIHandlers;
 $VERSION     = 1.00;
 @ISA         = qw(Exporter);
-@EXPORT      = qw(aggTradeHandler klineHandler miniTickerHandler bookTickerHandler);
+@EXPORT      = qw(aggTradeHandler klineHandler miniTickerHandler bookTickerHandler getOrderHigh getOrderLow);
 
 sub aggTradeHandler {
     my $data       = $_[0];
@@ -54,6 +55,7 @@ sub aggTradeHandler {
 
     return $datapool;
 };
+
 sub klineHandler {
     my $data       = $_[0];
     my $datapool   = $_[1];
@@ -77,7 +79,7 @@ sub klineHandler {
                 $ema = emaCalc($result, $config->{'Markets'}->{$marketname}->{'buy'}->{'emamethod'}, $alpha, $limit, $loglevel-1);
                 $datapool->{'analysis'}->{'ema'}->{'history_'.$interval} = $ema;
             } else {
-                logmessage("klineHandler: getKlines is undefined");
+                logMessage("klineHandler: getKlines is undefined");
             }
     }
     if (!defined $config->{'Markets'}->{$marketname}->{'buy'}->{'emamethod'} || $config->{'Markets'}->{$marketname}->{'buy'}->{'emamethod'} == 0) {
@@ -91,6 +93,7 @@ sub klineHandler {
 #    print Dumper $data;
     return $datapool;
 }
+
 sub miniTickerHandler {
     my $data      = $_[0];
     my $datapool  = $_[1];
@@ -103,6 +106,7 @@ sub miniTickerHandler {
 
     return $datapool;
 }
+
 sub bookTickerHandler {
     my $data      = $_[0];
     my $datapool  = $_[1];
@@ -114,19 +118,7 @@ sub bookTickerHandler {
 
     return $datapool;
 }
-sub getKlines {
-    my $marketname      = $_[0];
-    my $interval        = $_[1];
-    my $config          = $_[2];
-    my $loglevel        = $_[3];
-    my $limit           = $config->{'Markets'}->{lc($marketname)}->{'buy'}->{'historycheck'};
-    my $endpoint        = $config->{'API'}->{'url'} . "/uiKlines";
-    my $parameters      = "symbol=$marketname&interval=$interval&limit=$limit";
-    my $method          = "GET";
-    my ($result, $ping) = rest_api($endpoint, $parameters, undef, $method, $loglevel-1);
-#    print Dumper $result;
-    return $result;
-}
+
 sub getHighLow {
     my $high;
     my $low;
@@ -149,6 +141,7 @@ sub getHighLow {
     }
     return ($high, $low);
 }
+
 sub emaCalc {
     my $ema;
     my $candles   = $_[0];
@@ -175,6 +168,7 @@ sub emaCalc {
     }
     return $ema;
 }
+
 sub diffCalc {
     my $data     = $_[0];
     my $config   = $_[1];
@@ -185,8 +179,29 @@ sub diffCalc {
     my $difflow  = $data->{'klinelow_'.$interval} + ($diff * $config->{'diffratelow'});
     return ($diffhigh, $difflow);
 }
-sub logmessage {
-    my $string = $_[0];
+
+sub getOrderLow {
+    my $orders   = $_[0];
     my $loglevel = $_[1];
-    if (defined $loglevel && $loglevel > 5) { print $string; }
+    my $result   = undef;
+    foreach my $order (values %{ $orders }) {
+        if (!defined $result || $result->{'price'} > $order->{'price'}) {
+            $result = dclone $order;
+        }
+    }
+    return $result;
 }
+
+sub getOrderHigh {
+    my $orders   = $_[0];
+    my $loglevel = $_[1];
+    my $result   = undef;
+    foreach my $order (values %{ $orders }) {
+        if (!defined $result || $result->{'price'} < $order->{'price'}) {
+            $result = dclone $order;
+        }
+    }
+    return $result;
+}
+
+1;

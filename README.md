@@ -104,3 +104,9 @@ Basic configuration:
 
 This section describes behaviour of each market. In process of trading bot compares current values with configuration. If all tests passed, it performs a buy or sell.
 
+## Update Log
+
+2024-05-19
+
+- Added watchdog for WSS
+- Minor Fixes
