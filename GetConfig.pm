@@ -1,22 +1,48 @@
 package GetConfig;
 
+require Exporter;
+
 use strict;
-use Exporter;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
+use vars qw($VERSION @ISA @EXPORT);
 use JSON        qw(from_json encode_json);
 use POSIX;
 use Data::Dumper;
 use DateTime;
 use DateTime::TimeZone::Local;
+
+use lib './binance-rest-api-pl/';
 use ServiceSubs;
+use APIHandlers;
 
 $VERSION     = 1.00;
 @ISA         = qw(Exporter);
-@EXPORT      = ();
-@EXPORT_OK   = qw(getconfig setconfig appendconfig);
-%EXPORT_TAGS = ( DEFAULT => [qw(&getconfig &setconfig &appendconfig)]);
+@EXPORT      = qw(configHandler getConfig setConfig appendConfig);
 
-sub getconfig {
+sub configHandler {
+    my $configfile = $_[0];
+    my $loglevel   = $_[1];
+    my $result     = getConfig($configfile,0);
+    if (!defined $result) {
+        logMessage( "Config file not found - exit.\n", $loglevel);
+        exit 0;
+    } else { logMessage("Reading config file - ok;\n", $loglevel); }
+    if (!defined $result->{"WSS"} || !defined $result->{"WSS"}->{"host"} || !defined $result->{"WSS"}->{"port"}) {
+        logMessage( "WSS config not found - exit.\n", $loglevel);
+        exit 0;
+    } else { logMessage("WSS config found;\n", $loglevel); }
+
+    my $exchangeinfo = getExchangeInfo($result, $loglevel-1);
+    foreach my $marketname (keys %{ $exchangeinfo }) {
+        if (defined $exchangeinfo->{$marketname} && defined $exchangeinfo->{$marketname}->{'permissions'} && grep( "/^SPOT$/", $exchangeinfo->{$marketname}->{'permissions'}) ) {
+            $result->{'ExchangeInfo'} = $exchangeinfo;
+            $result->{'ExchangeInfo'}->{$marketname}->{'filters'} = getHashed($exchangeinfo->{$marketname}->{'filters'},'filterType');
+        }
+    }
+    print Dumper $result;
+    return $result;
+}
+
+sub getConfig {
     my $configfile = $_[0];
     my $loglevel = $_[1];
     my $config;
@@ -35,13 +61,13 @@ sub getconfig {
     } else {
         logMessage (" - file $configfile does not exits", $loglevel);
         $config = {};
-        setconfig($configfile, $loglevel, $config);
+        setConfig($configfile, $loglevel, $config);
 #        return undef;
     }
     return $config;
 }
 
-sub setconfig {
+sub setConfig {
     my $configfile = $_[0];
     my $loglevel = $_[1];
     my $config = $_[2];
@@ -61,7 +87,7 @@ sub setconfig {
     return 1;
 }
 
-sub appendconfig {
+sub appendConfig {
     my $configfile = $_[0];
     my $loglevel = $_[1];
     my $config = $_[2];

@@ -108,7 +108,6 @@ sub buyCheck {
             logMessage("\t3. Passed - Trend is fine. (" . $data->{'trend'}->{'buy'} . " > " . ($config->{'maxtrend'} - $config->{'maxtrend'}/10) . ")\n", $loglevel-1);
         }
     }
-#    return 1;
 # Diffrate
     if (!defined $data->{'diffhigh_1h'} || !defined $data->{'difflow_1h'} || !defined $data->{'price'}) {
         logMessage("\t4. Failed - Price or Diffrates are undefined\n", $loglevel);

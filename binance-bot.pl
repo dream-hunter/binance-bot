@@ -14,7 +14,7 @@ use Data::Dumper;
 use JSON;
 use POSIX;
 
-use GetConfig qw(getconfig setconfig appendconfig);
+use GetConfig;
 use ServiceSubs;
 use BinanceAPI qw(rest_api);
 use APIHandlers;
@@ -42,7 +42,7 @@ our $config = configHandler($configfile, $loglevel-1);
 #####################
 foreach my $marketname (keys %{ $config->{'Markets'} }) {
     logMessage("Reading order database for market $marketname...\n", $loglevel);
-    $datapool->{$marketname}->{'orders'} = getconfig("DB-".uc($marketname).".json", $loglevel-1);
+    $datapool->{$marketname}->{'orders'} = getConfig("DB-".uc($marketname).".json", $loglevel-1);
     if (defined $datapool->{$marketname}->{'orders'}) {
         logMessage(" - ok;\n", $loglevel);
     } else {
@@ -70,8 +70,8 @@ while (1) {
         interval=> 10,
         on_tick => sub {
             my $result = marketCheck($datapool, $config, $loglevel-1);
-            $datapool = buyHandler($datapool, $result, $loglevel-1);
-            $datapool = sellHandler($datapool, $result, $loglevel-1);
+            $datapool = buyHandler($datapool, $result, $config, $loglevel-1);
+            $datapool = sellHandler($datapool, $result, $config, $loglevel-1);
             if ($heartbeat < time) {
                 logMessage("Close connection...\n", $loglevel);
                 $client->close_now;
@@ -152,65 +152,3 @@ while (1) {
 ######
 # Subs
 ######
-sub buyHandler {
-    my $result   = $_[0];
-    my $data     = $_[1];
-    my $loglevel = $_[2];
-    foreach my $marketname (keys %{ $data->{'buy'} }) {
-        logMessage("!!!Wanna buy!!!\n", $loglevel);
-        my $buyorder = postBuyOrder($marketname,$result->{$marketname}->{'analysis'}->{'ask'},$config,$loglevel-1);
-        print Dumper $buyorder;
-        if (defined $buyorder->{'status'} && $buyorder->{'status'} eq 'FILLED') {
-            logMessage("We have a buy!\nWriting order database for market $marketname...\n", $loglevel);
-            $result->{$marketname}->{'orders'}->{'closed'}->{'buy'}->{$buyorder->{'clientOrderId'}} = $buyorder;
-            $result->{$marketname}->{'analysis'}->{'buyorderlow'} = getOrderLow($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
-            $result->{$marketname}->{'analysis'}->{'buyorderhigh'} = getOrderHigh($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
-            setconfig("DB-".uc($marketname).".json", $loglevel-1, $result->{$marketname}->{'orders'});
-        }
-    }
-    return $result;
-}
-sub sellHandler {
-    my $result   = $_[0];
-    my $data     = $_[1];
-    my $loglevel = $_[2];
-#    print Dumper $data;
-#    return $result;
-    foreach my $marketname (keys %{ $data->{'sell'} }) {
-        logMessage("!!!Wanna sell!!!\n", $loglevel);
-        my $sellorder = postSellOrder($result->{$marketname}->{'analysis'}->{'buyorderlow'},$result->{$marketname}->{'analysis'}->{'bid'},$config,$loglevel-1);
-        print Dumper $sellorder;
-        if (defined $sellorder->{'status'} && $sellorder->{'status'} eq 'FILLED') {
-            logMessage("We have a sell!\nWriting order database for market $marketname...\n", $loglevel);
-            delete($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}->{$result->{$marketname}->{'analysis'}->{'buyorderlow'}->{'clientOrderId'}});
-            $result->{$marketname}->{'analysis'}->{'buyorderlow'} = getOrderLow($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
-            $result->{$marketname}->{'analysis'}->{'buyorderhigh'} = getOrderHigh($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
-            setconfig("DB-".uc($marketname).".json", $loglevel-1, $result->{$marketname}->{'orders'});
-        }
-    }
-    return $result;
-}
-
-sub configHandler {
-    my $configfile = $_[0];
-    my $loglevel   = $_[1];
-    my $result     = getconfig($configfile,0);
-    if (!defined $result) {
-        logMessage( "Config file not found - exit.\n", $loglevel);
-        exit 0;
-    } else { logMessage("Reading config file - ok;\n", $loglevel); }
-    if (!defined $result->{"WSS"} || !defined $result->{"WSS"}->{"host"} || !defined $result->{"WSS"}->{"port"}) {
-        logMessage( "WSS config not found - exit.\n", $loglevel);
-        exit 0;
-    } else { logMessage("WSS config found;\n", $loglevel); }
-
-    my $exchangeinfo = getExchangeInfo($result, $loglevel-1);
-    foreach my $marketname (keys %{ $exchangeinfo }) {
-        if (defined $exchangeinfo->{$marketname} && defined $exchangeinfo->{$marketname}->{'permissions'} && grep( "/^SPOT$/", $exchangeinfo->{$marketname}->{'permissions'}) ) {
-            $result->{'ExchangeInfo'} = $exchangeinfo;
-            $result->{'ExchangeInfo'}->{$marketname}->{'filters'} = getHashed($exchangeinfo->{$marketname}->{'filters'},'filterType');
-        }
-    }
-    print Dumper $result;
-    return $result;
-}

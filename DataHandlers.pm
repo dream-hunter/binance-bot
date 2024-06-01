@@ -10,6 +10,7 @@ use vars qw($VERSION @ISA @EXPORT);
 use lib './binance-rest-api-pl/';
 
 use POSIX;
+use GetConfig;
 use BinanceAPI qw(rest_api);
 use Storable   qw(dclone);
 use Data::Dumper;
@@ -17,7 +18,47 @@ use ServiceSubs;
 use APIHandlers;
 $VERSION     = 1.00;
 @ISA         = qw(Exporter);
-@EXPORT      = qw(aggTradeHandler klineHandler miniTickerHandler bookTickerHandler getOrderHigh getOrderLow);
+@EXPORT      = qw(buyHandler sellHandler aggTradeHandler klineHandler miniTickerHandler bookTickerHandler getOrderHigh getOrderLow);
+
+sub buyHandler {
+    my $result   = $_[0];
+    my $data     = $_[1];
+    my $config   = $_[2];
+    my $loglevel = $_[3];
+    foreach my $marketname (keys %{ $data->{'buy'} }) {
+        logMessage("!!!Wanna buy!!!\n", $loglevel);
+        my $buyorder = postBuyOrder($marketname,$result->{$marketname}->{'analysis'}->{'ask'},$config,$loglevel-1);
+        print Dumper $buyorder;
+        if (defined $buyorder->{'status'} && $buyorder->{'status'} eq 'FILLED') {
+            logMessage("We have a buy!\nWriting order database for market $marketname...\n", $loglevel);
+            $result->{$marketname}->{'orders'}->{'closed'}->{'buy'}->{$buyorder->{'clientOrderId'}} = $buyorder;
+            $result->{$marketname}->{'analysis'}->{'buyorderlow'} = getOrderLow($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
+            $result->{$marketname}->{'analysis'}->{'buyorderhigh'} = getOrderHigh($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
+            setConfig("DB-".uc($marketname).".json", $loglevel-1, $result->{$marketname}->{'orders'});
+        }
+    }
+    return $result;
+}
+sub sellHandler {
+    my $result   = $_[0];
+    my $data     = $_[1];
+    my $config   = $_[2];
+    my $loglevel = $_[3];
+    foreach my $marketname (keys %{ $data->{'sell'} }) {
+        logMessage("!!!Wanna sell!!!\n", $loglevel);
+        my $sellorder = postSellOrder($result->{$marketname}->{'analysis'}->{'buyorderlow'},$result->{$marketname}->{'analysis'}->{'bid'},$config,$loglevel-1);
+        print Dumper $sellorder;
+        if (defined $sellorder->{'status'} && $sellorder->{'status'} eq 'FILLED') {
+            logMessage("We have a sell!\nWriting order database for market $marketname...\n", $loglevel);
+            delete($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}->{$result->{$marketname}->{'analysis'}->{'buyorderlow'}->{'clientOrderId'}});
+            $result->{$marketname}->{'analysis'}->{'buyorderlow'} = getOrderLow($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
+            $result->{$marketname}->{'analysis'}->{'buyorderhigh'} = getOrderHigh($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
+            setConfig("DB-".uc($marketname).".json", $loglevel-1, $result->{$marketname}->{'orders'});
+        }
+    }
+    return $result;
+}
+
 
 sub aggTradeHandler {
     my $data       = $_[0];
@@ -54,7 +95,7 @@ sub aggTradeHandler {
     $datapool->{'analysis'}->{'price'} = $data->{'p'};
 
     return $datapool;
-};
+}
 
 sub klineHandler {
     my $data       = $_[0];
