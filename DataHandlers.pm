@@ -69,7 +69,7 @@ sub sellHandler {
             push(@tradeline, $sellorder->{'price'});
             push(@tradeline, $sellorder->{'executedQty'});
             push(@tradeline, $sellorder->{'cummulativeQuoteQty'});
-            appendConfig("DB-trade-log.csv",$loglevel-1, join(",",@tradeline);
+            appendConfig("DB-trade-log.csv",$loglevel-1, join(",",@tradeline));
         }
     }
     return $result;
