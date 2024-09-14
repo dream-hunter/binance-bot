@@ -149,6 +149,7 @@ while (1) {
     sleep 10;
     logMessage("Start again.\n", $loglevel);
 }
+
 ######
 # Subs
 ######
