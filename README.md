@@ -16,6 +16,27 @@ cpan-outdated -p | cpanm --sudo
 cpanm IO::Async Net::Async::WebSocket::Client JSON DateTime IO::Async::SSL LWP::Protocol::https --sudo
 sudo dnf/apt/pkg install perl-REST-Client
 ```
+### 3. Downloading binance-bot
+```
+git clone https://github.com/dream-hunter/binance-bot.git
+```
+
+### 4. Downloading REST-API library
+```
+cd binance-bot
+git clone https://github.com/dream-hunter/binance-rest-api-pl.git
+```
+
+### 5. Prepare config file
+```
+cp config.json.example config.json
+```
+Edit config.json according to the config explanation below.
+
+### 6. Test started
+```
+/usr/bin/env perl binance-bot
+```
 
 ## Config explanation
 
