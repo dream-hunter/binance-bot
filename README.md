@@ -2,6 +2,21 @@
 
 Development just started...
 
+## Installation
+
+### 1. Required software:
+```
+sudo dnf/apt/pkg install perl cpanminus screen git
+```
+
+### 2. Perl modules:
+```
+cpanm App::cpanoutdated
+cpan-outdated -p | cpanm --sudo
+cpanm IO::Async Net::Async::WebSocket::Client JSON DateTime IO::Async::SSL LWP::Protocol::https --sudo
+sudo dnf/apt/pkg install perl-REST-Client
+```
+
 ## Config explanation
 
 System uses JSON format in config file. To run the bot, you need to copy config.json.example to config.json and edit some parameters. There are three major sections: API, WSS and Markets.
