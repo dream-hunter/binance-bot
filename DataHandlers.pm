@@ -50,10 +50,26 @@ sub sellHandler {
         print Dumper $sellorder;
         if (defined $sellorder->{'status'} && $sellorder->{'status'} eq 'FILLED') {
             logMessage("We have a sell!\nWriting order database for market $marketname...\n", $loglevel);
-            delete($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}->{$result->{$marketname}->{'analysis'}->{'buyorderlow'}->{'clientOrderId'}});
+            my $buyorderlow = $result->{$marketname}->{'analysis'}->{'buyorderlow'};
+            delete($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}->{$buyorderlow->{'clientOrderId'}});
             $result->{$marketname}->{'analysis'}->{'buyorderlow'} = getOrderLow($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
             $result->{$marketname}->{'analysis'}->{'buyorderhigh'} = getOrderHigh($result->{$marketname}->{'orders'}->{'closed'}->{'buy'}, $loglevel-1);
             setConfig("DB-".uc($marketname).".json", $loglevel-1, $result->{$marketname}->{'orders'});
+
+            my @tradeline;
+            push(@tradeline, $marketname);
+            push(@tradeline, $buyorderlow->{'clientOrderId'});
+            push(@tradeline, $buyorderlow->{'transactTime'});
+            push(@tradeline, $buyorderlow->{'price'});
+            push(@tradeline, $buyorderlow->{'executedQty'});
+            push(@tradeline, $buyorderlow->{'cummulativeQuoteQty'});
+
+            push(@tradeline, $sellorder->{'clientOrderId'});
+            push(@tradeline, $sellorder->{'transactTime'});
+            push(@tradeline, $sellorder->{'price'});
+            push(@tradeline, $sellorder->{'executedQty'});
+            push(@tradeline, $sellorder->{'cummulativeQuoteQty'});
+            appendConfig("DB-trade-log.csv",$loglevel-1, join(",",@tradeline);
         }
     }
     return $result;
