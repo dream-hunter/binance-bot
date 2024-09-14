@@ -186,7 +186,7 @@ sub sellCheck {
 #        return undef;
     } else {
         if ($data->{'ema'}->{'5m'} > $data->{'ema'}->{'1h'}) {
-            logMessage("\t3. Passed - Short EMA greater than Long EMA. (" . sprintf("%.8f", $data->{'ema'}->{'5m'}) . " > " . sprintf("%.8f", $data->{'ema'}->{'1h'}) . ")\n", $loglevel);
+            logMessage("\t3. Failed - Short EMA greater than Long EMA. (" . sprintf("%.8f", $data->{'ema'}->{'5m'}) . " > " . sprintf("%.8f", $data->{'ema'}->{'1h'}) . ")\n", $loglevel);
             $result = undef;
 #            return undef;
         } else {
