@@ -109,21 +109,22 @@ sub buyCheck {
         }
     }
 # Diffrate
-    if (!defined $data->{'diffhigh_1h'} || !defined $data->{'difflow_1h'} || !defined $data->{'price'}) {
+    my $interval = "4h";
+    if (!defined $data->{"diffhigh_$interval"} || !defined $data->{"difflow_$interval"} || !defined $data->{'price'}) {
         logMessage("\t4. Failed - Price or Diffrates are undefined\n", $loglevel);
         $result = undef;
 #        return undef;
     } else {
-        if ($data->{'diffhigh_1h'} < $data->{'price'}) {
-            logMessage("\t4. Failed - Price is too high. (" . $data->{'diffhigh_1h'} . " < " . $data->{'price'} . ")\n", $loglevel);
+        if ($data->{"diffhigh_$interval"} < $data->{'price'}) {
+            logMessage("\t4. Failed - Price is too high. (" . $data->{"diffhigh_$interval"} . " < " . $data->{'price'} . ")\n", $loglevel);
             $result = undef;
 #            return undef;
-        } elsif ($data->{'difflow_1h'} > $data->{'price'}) {
-            logMessage("\t4. Failed - Price is too low. (" . $data->{'difflow_1h'} . " > " . $data->{'price'} . ")\n", $loglevel);
+        } elsif ($data->{"difflow_$interval"} > $data->{'price'}) {
+            logMessage("\t4. Failed - Price is too low. (" . $data->{"difflow_$interval"} . " > " . $data->{'price'} . ")\n", $loglevel);
             $result = undef;
 #            return undef;
         } else {
-            logMessage("\t4. Passed - Price is fine\n", $loglevel-1);
+            logMessage("\t4. Passed - Price is fine (" . $data->{"difflow_$interval"} . " < " . $data->{'price'} . " < " . $data->{"diffhigh_$interval"} . ")\n", $loglevel-1);
         }
     }
 # EMA

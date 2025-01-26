@@ -138,6 +138,7 @@ while (1) {
         push(@params, "$marketname\@aggTrade");
         push(@params, "$marketname\@kline_5m");
         push(@params, "$marketname\@kline_1h");
+        push(@params, "$marketname\@kline_4h");
         push(@params, "$marketname\@miniTicker");
         push(@params, "$marketname\@bookTicker");
     }
